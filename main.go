@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
 
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/database"
 
 	"github.com/joho/godotenv"
@@ -21,13 +24,13 @@ type apiConfig struct {
 	s3Region         string
 	s3CfDistribution string
 	port             string
+	s3Client		 *s3.Client
 }
 
 
 
 func main() {
 	godotenv.Load(".env")
-
 	pathToDB := os.Getenv("DB_PATH")
 	if pathToDB == "" {
 		log.Fatal("DB_URL must be set")
@@ -77,6 +80,12 @@ func main() {
 	if port == "" {
 		log.Fatal("PORT environment variable is not set")
 	}
+	//load default config & create cleint
+	s3Config, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		log.Fatalf("couldn't load s3 config: %v", err)
+	}
+	s3Client := s3.NewFromConfig(s3Config)
 
 	cfg := apiConfig{
 		db:               db,
@@ -88,7 +97,9 @@ func main() {
 		s3Region:         s3Region,
 		s3CfDistribution: s3CfDistribution,
 		port:             port,
+		s3Client: 		  s3Client,
 	}
+
 
 	err = cfg.ensureAssetsDir()
 	if err != nil {
@@ -100,7 +111,7 @@ func main() {
 	mux.Handle("/app/", appHandler)
 
 	assetsHandler := http.StripPrefix("/assets", http.FileServer(http.Dir(assetsRoot)))
-	mux.Handle("/assets/", cacheMiddleware(assetsHandler))
+	mux.Handle("/assets/", noCacheMiddleware(assetsHandler))
 
 	mux.HandleFunc("POST /api/login", cfg.handlerLogin)
 	mux.HandleFunc("POST /api/refresh", cfg.handlerRefresh)
