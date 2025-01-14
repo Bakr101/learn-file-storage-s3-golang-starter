@@ -100,7 +100,7 @@ func main() {
 		s3Client: 		  s3Client,
 	}
 
-
+	
 	err = cfg.ensureAssetsDir()
 	if err != nil {
 		log.Fatalf("Couldn't create assets directory: %v", err)
